@@ -115,7 +115,7 @@ def main(
 
 if __name__ == "__main__":
     try:
-        from repair_optimized import repair as REPAIR_FN
+        from repair_basic import repair as REPAIR_FN
     except ImportError:
         REPAIR_FN = None
     ok = main(REPAIR_FN)
