@@ -5,10 +5,15 @@ Testing utility for clickstream repair functions.
 Tests a function with signature (input_file: str, output_file: str) by running it
 on each input file in test_files/ and comparing the output to the corresponding
 golden file (suffix _repaired before extension).
+
+CLI: pass a Python file that defines a 'repair(input_file, output_file)' function.
 """
 
-from pathlib import Path
+import argparse
+import importlib.util
+import sys
 import tempfile
+from pathlib import Path
 from typing import Callable
 
 # Default directory containing test files (input and _repaired golden files)
@@ -86,6 +91,19 @@ def run_tests(
     return passed, len(pairs)
 
 
+def load_repair_from_file(module_path: Path) -> Callable[[str, str], None]:
+    """Load the 'repair' function from a Python file."""
+    spec = importlib.util.spec_from_file_location(module_path.stem, module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load module from {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    if not hasattr(module, "repair"):
+        raise AttributeError(f"Module {module_path} has no 'repair' function")
+    return getattr(module, "repair")
+
+
 def main(
     repair_fn: Callable[[str, str], None] | None = None,
     test_dir: Path | None = None,
@@ -97,12 +115,10 @@ def main(
     """
     if repair_fn is None:
         print(
-            "Usage: Pass your repair function to run_tests() or main().\n"
+            "Usage: python test_repair.py <module.py>\n"
+            "  module.py must define repair(input_file: str, output_file: str)\n"
             "Example:\n"
-            "  from test_repair import run_tests\n"
-            "  run_tests(my_repair_function)\n"
-            "Or run with a concrete implementation:\n"
-            "  python test_repair.py  # after setting REPAIR_FN below"
+            "  python test_repair.py repair_basic.py"
         )
         return False
 
@@ -114,9 +130,31 @@ def main(
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Test a repair function from a Python module against golden files in test_files/"
+    )
+    parser.add_argument(
+        "module",
+        type=Path,
+        help="Path to the Python file defining a 'repair(input_file, output_file)' function",
+    )
+    parser.add_argument(
+        "--test-dir",
+        type=Path,
+        default=DEFAULT_TEST_DIR,
+        help=f"Directory containing test input and *_repaired golden files (default: {DEFAULT_TEST_DIR})",
+    )
+    args = parser.parse_args()
+
+    if not args.module.exists():
+        print(f"Error: Module file not found: {args.module}", file=sys.stderr)
+        sys.exit(1)
+
     try:
-        from repair_basic import repair as REPAIR_FN
-    except ImportError:
-        REPAIR_FN = None
-    ok = main(REPAIR_FN)
-    exit(0 if ok else 1)
+        repair_fn = load_repair_from_file(args.module)
+    except (ImportError, AttributeError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    ok = main(repair_fn, args.test_dir)
+    sys.exit(0 if ok else 1)

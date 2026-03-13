@@ -4,14 +4,14 @@ Memory-efficient repair for clickstream TSV files.
 
 Processes input line-by-line without loading the whole file. Joins lines that
 were split by unquoted newlines and writes output with embedded newlines
-escaped as \\n. Suitable for multi-GB files.
+escaped as  . Suitable for multi-GB files.
 """
 
 
 def repair(input_file: str, output_file: str) -> None:
     """
     Stream input_file, repair broken rows (join continuation lines), and write
-    one line per row to output_file with newlines in fields as \\n.
+    one line per row to output_file with newlines in fields as  .
     Uses only O(longest_line) memory plus a small row buffer.
     """
     with open(input_file, "r", newline="", errors="replace") as inf, open(
@@ -35,7 +35,7 @@ def repair(input_file: str, output_file: str) -> None:
             if buffer.count("\t") >= expected_tabs:
                 # Buffer is already a complete row; never merge into it. Output and start new row.
                 fields = buffer.split("\t")
-                repaired = "\t".join(f.replace("\n", "\\n") for f in fields)
+                repaired = "\t".join(f.replace("\n", " ") for f in fields)
                 if not first_row:
                     out.write("\n")
                 out.write(repaired)
@@ -45,7 +45,7 @@ def repair(input_file: str, output_file: str) -> None:
                 # Buffer is incomplete but next line is complete: incomplete line starts a new row.
                 # Output the partial row and start fresh with the complete line.
                 fields = buffer.split("\t")
-                repaired = "\t".join(f.replace("\n", "\\n") for f in fields)
+                repaired = "\t".join(f.replace("\n", " ") for f in fields)
                 if not first_row:
                     out.write("\n")
                 out.write(repaired)
@@ -57,7 +57,7 @@ def repair(input_file: str, output_file: str) -> None:
 
         if buffer is not None:
             fields = buffer.split("\t")
-            repaired = "\t".join(f.replace("\n", "\\n") for f in fields)
+            repaired = "\t".join(f.replace("\n", " ") for f in fields)
             if not first_row:
                 out.write("\n")
             out.write(repaired)
