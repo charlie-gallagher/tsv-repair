@@ -1,8 +1,5 @@
 # TSV Repair
-## Tests
-To run the tests, update the main method in `test_repair.py` so that it imports
-your module's repair method. The repair method must have the following
-signature:
+The repair method must have the following signature:
 
 ```py
 def repair(input_file: str, output_file: str) -> None:
@@ -12,8 +9,11 @@ def repair(input_file: str, output_file: str) -> None:
 It should read `input_file` and write to `output_file`. You can also run the
 tests using this one liner:
 
+## Tests
+To run the tests, run the `test_repair.py` script with your python file as the argument.
+
 ```
-python3 -c "from test_repair import main; from MY_MODULE import repair; main(repair)"
+python test_repair.py repair_basic.py
 ```
 
 ## Performance benchmarks
@@ -23,9 +23,15 @@ Generate a large TSV file with random newlines using `generate_large_file.py`.
 python3 generate_large_file.py
 ```
 
-This is configurable, but I ran my benchmarks against the defaults. See `python3 generate_large_file.py --help` for more information. This also has the current defaults.
+This is configurable, but I ran my benchmarks against the defaults. See `python3 generate_large_file.py --help` for more information. If you want a **progress bar** you can install `tqdm` and the file will pick up on it and use that to show progress as rows are generated.
 
-If you want a **progress bar** you can install `tqdm` and the file will pick up on it and use that to show progress as rows are generated.
+Once you have a large file, you use the `benchmark_repair.py` script just like the `test_repair.py` script.
+
+```
+python benchmark_repair.py repair_basic.py
+```
+
+This will write results to stdout and record them in the file `perf_log.txt` so you can keep track of your optimizations over time.
 
 # Problem description
 Using pure python (stdlib), repair a large (10GB), utf-8 encoded TSV file with a
