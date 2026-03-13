@@ -74,16 +74,44 @@ HEADERS = [
 ]
 COLUMN_VALUES = _header_part1 + _header_part2 + _header_part3
 
+# Pre-built cell value pools to avoid repeated random.sample + join per cell
+_CELL_POOL_SIZE = 8192
+_CELL_POOL_NO_NL = None
+_CELL_POOL_WITH_NL = None
+
+# Had Cursor write this optimization
+def _build_cell_pools() -> None:
+    global _CELL_POOL_NO_NL, _CELL_POOL_WITH_NL
+    if _CELL_POOL_NO_NL is not None:
+        return
+    no_nl = []
+    with_nl = []
+    for _ in range(_CELL_POOL_SIZE):
+        words = random.sample(COLUMN_VALUES, 4)
+        no_nl.append(" ".join(words))
+        # Embed newline after first word (matches original logic: replace " ", "\n", 1)
+        with_nl.append(words[0] + "\n" + " ".join(words[1:]))
+    _CELL_POOL_NO_NL = no_nl
+    _CELL_POOL_WITH_NL = with_nl
+
 
 def generate_file(
     filename: str, ncol: int, nrow: int, newline_likelihood: float
 ) -> None:
-    with open(filename, "w") as fout:
+    _build_cell_pools()
+    with open(filename, "w", buffering=2**20) as fout:  # 1 MiB write buffer
         header = _generate_header(ncol=ncol)
         fout.write(header + "\n")
+        batch_size = 50_000
+        batch = []
         for i in tqdm_wrap(range(nrow)):
             row = _generate_row(ncol=ncol, newline_likelihood=newline_likelihood)
-            fout.write(row + "\n")
+            batch.append(row)
+            if len(batch) >= batch_size:
+                fout.write("\n".join(batch) + "\n")
+                batch = []
+        if batch:
+            fout.write("\n".join(batch) + "\n")
 
 
 def _generate_header(ncol: int) -> str:
@@ -97,24 +125,17 @@ def _generate_header(ncol: int) -> str:
 
 
 def _generate_row(ncol: int, newline_likelihood: float) -> str:
-    row = []
-    for i in range(ncol):
-        # The first row should be an ID
-        if i == 0:
-            # A random 10 digit number, repeats are ok
-            row.append(str(random.randint(1000000000, 9999999999)))
-            continue
-        add_newline = (1 - newline_likelihood) < random.random()
-        col_values = " ".join(random.sample(COLUMN_VALUES, 4))
-        if add_newline:
-            col_values = col_values.replace(" ", "\n", 1)
-        row.append(col_values)
+    row = [str(random.randint(1000000000, 9999999999))]
+    for _ in range(ncol - 1):
+        use_newline = random.random() < newline_likelihood
+        pool = _CELL_POOL_WITH_NL if use_newline else _CELL_POOL_NO_NL
+        row.append(random.choice(pool))
     return "\t".join(row)
 
 
 def main() -> None:
     default_columns = 120
-    default_rows = 10_000_000
+    default_rows = 1_000_000
     default_newline_pct = 0.002
     default_output_file = "large_file.tsv"
     parser = argparse.ArgumentParser(
