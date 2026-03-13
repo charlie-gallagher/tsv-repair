@@ -1,4 +1,6 @@
 # TSV Repair
+Associated blogpost: https://charlie-gallagher.github.io/2026/03/12/tsv-repair.html
+
 In this repo, you can test a repair function for correctness and benchmark it.
 
 To get started, you need a python module with a `repair` function. The repair must have the following signature:
