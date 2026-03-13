@@ -1,4 +1,5 @@
 # TSV Repair
+## Tests
 To run the tests, update the main method in `test_repair.py` so that it imports
 your module's repair method. The repair method must have the following
 signature:
@@ -14,6 +15,17 @@ tests using this one liner:
 ```
 python3 -c "from test_repair import main; from MY_MODULE import repair; main(repair)"
 ```
+
+## Performance benchmarks
+Generate a large TSV file with random newlines using `generate_large_file.py`.
+
+```
+python3 generate_large_file.py
+```
+
+This is configurable, but I ran my benchmarks against the defaults. See `python3 generate_large_file.py --help` for more information. This also has the current defaults.
+
+If you want a **progress bar** you can install `tqdm` and the file will pick up on it and use that to show progress as rows are generated.
 
 # Problem description
 Using pure python (stdlib), repair a large (10GB), utf-8 encoded TSV file with a
