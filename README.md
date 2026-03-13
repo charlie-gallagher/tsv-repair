@@ -1,13 +1,14 @@
 # TSV Repair
-The repair method must have the following signature:
+In this repo, you can test a repair function for correctness and benchmark it.
+
+To get started, you need a python module with a `repair` function. The repair must have the following signature:
 
 ```py
 def repair(input_file: str, output_file: str) -> None:
     ...
 ```
 
-It should read `input_file` and write to `output_file`. You can also run the
-tests using this one liner:
+It should read `input_file` and write the repaired version to `output_file`.
 
 ## Tests
 To run the tests, run the `test_repair.py` script with your python file as the argument.
