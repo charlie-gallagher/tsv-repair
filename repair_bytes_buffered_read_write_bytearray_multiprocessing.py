@@ -3,15 +3,14 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
 
 
-def repair(input_file: str, output_file: str) -> None:
+def repair(input_file: str, output_file: str, concat_files: bool = False) -> None:
     chunks = _get_chunks(input_file)
     n_field_delims = _get_n_field_delims(input_file)
     # print(f"N field delimiters: {n_field_delims}")
     # In the first pass, each worker reads a chunk and reports the number of
     # tab characters in the chunk. Then, the master process collects the results
     # and determines the correct adjusted chunk offsets for each worker.
-    with ProcessPoolExecutor(max_workers=1) as executor:
-    # with ProcessPoolExecutor(max_workers=len(chunks)) as executor:
+    with ProcessPoolExecutor(max_workers=len(chunks)) as executor:
         stats = list(zip(
             chunks, executor.map(gather_stats, [input_file] * len(chunks), chunks)
         ))
@@ -28,7 +27,6 @@ def repair(input_file: str, output_file: str) -> None:
                 complement_tabs = 0
             tab_info.append((chunk, n_tabs, skip_tabs, complement_tabs))
             previous_remainder = complement_tabs
-        # print(f"Tab info: {tab_info}")
 
         futures = []
         sub_output_files = []
@@ -38,12 +36,14 @@ def repair(input_file: str, output_file: str) -> None:
             futures.append(executor.submit(repair_chunk, input_file, chunk, n_field_delims, skip_tabs, complement_tabs, sub_output_file))
         for future in as_completed(futures):
             future.result()
+
     # Now stitch the files back together for debugging purposes
-    with open(output_file, "wb") as fout:
-        for sub_output_file in sub_output_files:
-            with open(sub_output_file, "rb") as fin:
-                fout.write(fin.read())
-            os.remove(sub_output_file)
+    if concat_files:
+        with open(output_file, "wb") as fout:
+            for sub_output_file in sub_output_files:
+                with open(sub_output_file, "rb") as fin:
+                    fout.write(fin.read())
+                os.remove(sub_output_file)
 
 def _get_chunks(input_file: str) -> list[tuple[int, int]]:
     def chunk_indices(length, n):
@@ -71,10 +71,15 @@ def gather_stats(input_file: str, input_range: tuple[int, int]) -> int:
         with io.BufferedReader(fin, buffer_size=256 * 1024) as fin_buffered:
             fin_buffered.seek(input_range[0])
             section_tabs = 0
-            while fin_buffered.tell() < input_range[1]:
-                char = fin_buffered.read1(1)
-                if char == b"\t":
-                    section_tabs += 1
+            while True:
+                line = fin_buffered.readline()
+                new_pos = fin_buffered.tell()
+                if new_pos >= input_range[1]:
+                    # Only count up through input_range[1]
+                    line = line[:input_range[1] - new_pos]
+                section_tabs += line.count(b"\t")
+                if new_pos >= input_range[1]:
+                    break
             return section_tabs
 
 
