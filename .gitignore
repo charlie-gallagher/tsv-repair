@@ -1,5 +1,7 @@
 large_file.tsv
 medium_file.tsv
+small_file.tsv
 large_file_repaired.tsv
 medium_file_repaired.tsv
+small_file_repaired.tsv
 perf_log.txt
