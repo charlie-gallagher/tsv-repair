@@ -69,6 +69,37 @@ A few categories for results:
 - Pure python vs other libraries vs external code (but then you could just write
   it in C, and that's no fun).
 
+## Ambiguity in final fields
+If the final field in a row contains newline characters, there's no way to know
+whether an unquoted newline character is a record delimiter or an unquoted
+newline. Here's the same case with a CSV file.
+
+```
+one,two,three
+four
+five,six,seven
+```
+
+This could be interpreted in one of two ways:
+
+```
+# Version 1
+one,two,three\nfour
+five,six,seven
+
+# Version 2
+one,two,three
+four\nfive,six,seven
+```
+
+There's no way to know which interpretation is correct, so we need a tie breaker.
+I prefer a non-greedy approach that produces interpretation Version 2. You read
+lines and stop reading as soon as you have accumulated the correct number of
+field delimiters (tabs, commas). During processing of the above ambiguous
+snippet, the processor first reads the line `one,two,three` and finds it complete.
+Then, it starts building the next record with `four`, which it joins with the
+next line, after which join it finds that this record is now complete.
+
 ---
 
 Charlie Gallagher, March 2026
