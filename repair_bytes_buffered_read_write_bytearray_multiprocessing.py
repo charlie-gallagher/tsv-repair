@@ -6,7 +6,7 @@ import os
 def repair(input_file: str, output_file: str) -> None:
     chunks = _get_chunks(input_file)
     n_field_delims = _get_n_field_delims(input_file)
-    print(f"N field delimiters: {n_field_delims}")
+    # print(f"N field delimiters: {n_field_delims}")
     # In the first pass, each worker reads a chunk and reports the number of
     # tab characters in the chunk. Then, the master process collects the results
     # and determines the correct adjusted chunk offsets for each worker.
@@ -21,19 +21,21 @@ def repair(input_file: str, output_file: str) -> None:
         tab_info = []
         previous_remainder = 0
         for chunk, n_tabs in stats:
-            print(f"Chunk: {chunk}, n_tabs: {n_tabs}, previous_remainder: {previous_remainder} current remainder: {n_tabs % n_field_delims}")
             skip_tabs = previous_remainder
-            remainder_tabs = (n_tabs - previous_remainder) % n_field_delims
-            tab_info.append((chunk, n_tabs, skip_tabs, remainder_tabs))
-            previous_remainder = remainder_tabs
-        print(f"Tab info: {tab_info}")
+            # Calculate the number of additional tabs needed to make a complete record
+            complement_tabs = n_field_delims - (n_tabs - previous_remainder) % n_field_delims
+            if complement_tabs == n_field_delims:
+                complement_tabs = 0
+            tab_info.append((chunk, n_tabs, skip_tabs, complement_tabs))
+            previous_remainder = complement_tabs
+        # print(f"Tab info: {tab_info}")
 
         futures = []
         sub_output_files = []
-        for chunk, n_tabs, skip_tabs, remainder_tabs in tab_info:
+        for chunk, n_tabs, skip_tabs, complement_tabs in tab_info:
             sub_output_file = f"{chunk[0]}_{chunk[1]}_{output_file}"
             sub_output_files.append(sub_output_file)
-            futures.append(executor.submit(repair_chunk, input_file, chunk, n_field_delims, skip_tabs, remainder_tabs, sub_output_file))
+            futures.append(executor.submit(repair_chunk, input_file, chunk, n_field_delims, skip_tabs, complement_tabs, sub_output_file))
         for future in as_completed(futures):
             future.result()
     # Now stitch the files back together for debugging purposes
@@ -41,7 +43,7 @@ def repair(input_file: str, output_file: str) -> None:
         for sub_output_file in sub_output_files:
             with open(sub_output_file, "rb") as fin:
                 fout.write(fin.read())
-            # os.remove(sub_output_file)
+            os.remove(sub_output_file)
 
 def _get_chunks(input_file: str) -> list[tuple[int, int]]:
     def chunk_indices(length, n):
@@ -51,10 +53,10 @@ def _get_chunks(input_file: str) -> list[tuple[int, int]]:
     # Find the number of processors
     num_processors = os.cpu_count()
     input_file_size = os.path.getsize(input_file)
-    print(f"Input file size: {input_file_size}")
-    print(f"Number of processors: {num_processors}")
+    # print(f"Input file size: {input_file_size}")
+    # print(f"Number of processors: {num_processors}")
     chunks = chunk_indices(input_file_size, num_processors)
-    print(f"Chunks: {chunks}")
+    # print(f"Chunks: {chunks}")
     return chunks
 
 
@@ -100,7 +102,7 @@ def repair_chunk(
 
             # Then, iterate over the lines, repairing as you go
             while True:
-                print(f"Skipped {skip_tabs} tabs. Reading at {fin.tell()} (originally {input_range[0]}), expecting to stop at {input_range[1]}")
+                # print(f"Skipped {skip_tabs} tabs. Reading at {fin.tell()} (originally {input_range[0]}), expecting to stop at {input_range[1]}")
                 if fin.tell() >= input_range[1]:
                     break
                 line = fin.readline()
@@ -137,7 +139,6 @@ if __name__ == "__main__":
     import sys
 
     input_file = sys.argv[1]
-    # output_file = sys.argv[2]
-    # print(f"Reader {input_file} and writing to {output_file}")
-    # repair(input_file, output_file)
-    repair(input_file, "tmp.tsv")
+    output_file = sys.argv[2]
+    print(f"Reader {input_file} and writing to {output_file}")
+    repair(input_file, output_file)
