@@ -104,12 +104,27 @@ def repair_chunk(
 
             fin.seek(input_range[0])
             if input_range[0] != 0:
+
+                def find_nth(s: bytes, char: bytes, n: int) -> int:
+                    positions = [i for i, c in enumerate(s) if c == char[0]]
+                    return positions[n - 1] if len(positions) >= n else -1
+
                 # Skip the correct number of tabs
-                n_tabs = 0
-                while n_tabs < skip_tabs:
-                    next_byte = fin.read1(1)
-                    if next_byte == b"\t":
-                        n_tabs += 1
+                n_tabs_skipped = 0
+                while True:
+                    skip_buffer = fin.read1(512)
+                    skip_buffer_tabs = skip_buffer.count(b"\t")
+                    n_tabs_skipped += skip_buffer_tabs
+                    if n_tabs_skipped >= skip_tabs:
+                        alignment_tab_index = skip_buffer_tabs - (
+                            n_tabs_skipped - skip_tabs
+                        )
+                        alignment_tab_pos = find_nth(
+                            skip_buffer, b"\t", alignment_tab_index
+                        )
+                        fin.seek(-(len(skip_buffer) - alignment_tab_pos), os.SEEK_CUR)
+                        break
+
                 # Now align to the next newline
                 next_byte = fin.read1(1)
                 while next_byte != b"\n":
