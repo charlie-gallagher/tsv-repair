@@ -75,7 +75,7 @@ def _get_n_field_delims(input_file: str) -> int:
 
 def gather_stats(input_file: str, input_range: tuple[int, int]) -> int:
     with open(input_file, "rb") as fin:
-        with io.BufferedReader(fin, buffer_size=256 * 1024) as fin_buffered:
+        with io.BufferedReader(fin, buffer_size=512 * 1024) as fin_buffered:
             fin_buffered.seek(input_range[0])
             section_tabs = 0
             while True:
@@ -99,7 +99,7 @@ def repair_chunk(
 ) -> None:
     with open(input_file, "rb") as fin_raw, open(output_file, "wb") as fout_raw:
         with io.BufferedReader(fin_raw, buffer_size=1 << 20) as fin, io.BufferedWriter(
-            fout_raw, buffer_size=256 * 1024
+            fout_raw, buffer_size=512 * 1024
         ) as fout:
 
             fin.seek(input_range[0])
